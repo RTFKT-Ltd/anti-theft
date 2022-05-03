@@ -112,7 +112,10 @@ abstract contract AntiTheft is ERC721A, Ownable {
     **/
     function _beforeTokenTransfers(address from, address to, uint256 startTokenId, uint256 quantity) internal virtual override {
         if(blockTransactionWhenFlagged) require(stolenFlags[startTokenId] == 0x0000000000000000000000000000000000000000 || msg.sender == owner(), "This NFT has been flagged as stolen and can't be transferred until litige has been set.");
-        if(useBlacklistingSystem) require(!blacklistedAddress[to] || exceptionBlacklist[from][to], "This address has been blacklisted and can't receive this token");
+        if(useBlacklistingSystem) { 
+            require(!blacklistedAddress[to] || exceptionBlacklist[from][to], "This address has been blacklisted and can't receive this token");
+            require(!blacklistedAddress[from], "You are a blacklisted address. You can't perform this operation.");
+        }
 
         super._beforeTokenTransfers(from, to, startTokenId, quantity);
     }
