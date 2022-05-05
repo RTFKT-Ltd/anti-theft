@@ -19,7 +19,7 @@ import "./ERC721A.sol";
 
 contract TestNFTStandalone is ERC721A, Ownable {
     string public baseURI = "ipfs://nope/";
-    address antiTheftSystemAddress = 0x5FD6eB55D12E759a21C09eF703fe0CBa1DC9d88D;
+    address antiTheftSystemAddress = 0xb27A31f1b0AF2946B7F582768f03239b1eC07c2c;
  
     constructor () ERC721A("TestNFT", "TestNFT", 20) {
     }
@@ -59,11 +59,17 @@ contract TestNFTStandalone is ERC721A, Ownable {
         return baseURI;
     }
 
+    function getPastOwnership() public view returns (uint256) {
+        AntiTheftContract externalContract = AntiTheftContract(antiTheftSystemAddress);
+        return externalContract.getPastOwnership(msg.sender);
+    }
+
     function _beforeTokenTransfers(address from, address to, uint256 startTokenId, uint256 quantity) internal virtual override {
         AntiTheftContract externalContract = AntiTheftContract(antiTheftSystemAddress);
 
         if(externalContract.getCoreParameter("transferBlock")) require(externalContract.getStolenFlags(startTokenId) == 0x0000000000000000000000000000000000000000 || msg.sender == antiTheftSystemAddress, "This NFT has been flagged as stolen and can't be transferred until litige has been set.");
         if(externalContract.getCoreParameter("blacklist")) require(!externalContract.getBlacklistedAddress(to) || externalContract.getExceptionList(from,to), "This address has been blacklisted and can't receive this token");
+        if(externalContract.getCoreParameter("timelock")) require(externalContract.getPastOwnership(msg.sender) == 0 || block.timestamp - externalContract.getPastOwnership(msg.sender) >= 60, "You can't transfer this NFT now.");
 
         super._beforeTokenTransfers(from, to, startTokenId, quantity);
     }
