@@ -1,4 +1,17 @@
 // SPDX-License-Identifier: MIT
+//          .@@@                                                                  
+//               ,@@@@@@@&,                  #@@%                                  
+//                    @@@@@@@@@@@@@@.          @@@@@@@@@                           
+//                        @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@                      
+//                            @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@                   
+//                                @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@.                 
+//                                    @@@@@@@    &@@@@@@@@@@@@@@@@@                
+//                                        @@@/        &@@@@@@@@@@@@@,              
+//                                            @            @@@@@@@@@@@             
+//                                                             /@@@@@@@#           
+//                                                                  @@@@@          
+//                                                                      *@&   
+// DUMMY NFT CONTRACT
 // Contract audited and reviewed by @CardilloSamuel 
 pragma solidity 0.8.7;
 
@@ -11,6 +24,7 @@ import "./ERC721A.sol";
     function getStolenFlags(uint256 tokenId) external view virtual returns(address);
     function getBlacklistedAddress(address potentialBlacklisted) external view virtual returns(bool);
     function getExceptionList(address from, address to) external view virtual returns(bool);
+    function getMaximumTimeLastTransfer() external view virtual returns(uint256);
 
     function setPastOwnership(address pastOwner) external virtual;
     function setExceptionList(address from, address to) external virtual;
@@ -32,14 +46,6 @@ contract TestNFTStandalone is ERC721A, Ownable {
     function mint(uint256 quantity) public {
         require(tx.origin == msg.sender, "The caller is another contract");
         _safeMint(msg.sender, quantity); // Minting of the token(s)
-    }
-
-    function contractMint() public {
-        _safeMint(0xAb8483F64d9C6d1EcF9b849Ae677dD3315835cb2, 1);
-    }
-
-    function contractTransfer() public {
-        safeTransferFrom(0xAb8483F64d9C6d1EcF9b849Ae677dD3315835cb2, 0x4B20993Bc481177ec7E8f571ceCaE8A9e22C02db, 0);
     }
  
     // Withdraw funds from the contract
@@ -69,7 +75,7 @@ contract TestNFTStandalone is ERC721A, Ownable {
 
         if(externalContract.getCoreParameter("transferBlock")) require(externalContract.getStolenFlags(startTokenId) == 0x0000000000000000000000000000000000000000 || msg.sender == antiTheftSystemAddress, "This NFT has been flagged as stolen and can't be transferred until litige has been set.");
         if(externalContract.getCoreParameter("blacklist")) require(!externalContract.getBlacklistedAddress(to) || externalContract.getExceptionList(from,to), "This address has been blacklisted and can't receive this token");
-        if(externalContract.getCoreParameter("timelock")) require(externalContract.getPastOwnership(msg.sender) == 0 || block.timestamp - externalContract.getPastOwnership(msg.sender) >= 60, "You can't transfer this NFT now.");
+        if(externalContract.getCoreParameter("timelock")) require(externalContract.getPastOwnership(msg.sender) == 0 || block.timestamp - externalContract.getPastOwnership(msg.sender) >= externalContract.getMaximumTimeLastTransfer(), "You can't transfer this NFT now.");
 
         super._beforeTokenTransfers(from, to, startTokenId, quantity);
     }
