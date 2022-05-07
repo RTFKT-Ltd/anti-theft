@@ -13,8 +13,21 @@
 //                                                             /@@@@@@@#           
 //                                                                  @@@@@          
 //                                                                      *@&   
-//         RTFKT Studios (https://twitter.com/RTFKT)
+//
+//               @@@  @@@  @@@  @@@  @@@        @@@@@@@  @@@  @@@  @@@@@@@   
+//               @@@  @@@  @@@@ @@@  @@@       @@@@@@@@  @@@  @@@  @@@@@@@@  
+//               @@!  @@@  @@!@!@@@  @@!       !@@       @@!  !@@  @@!  @@@  
+//               !@!  @!@  !@!!@!@!  !@!       !@!       !@!  @!!  !@!  @!@  
+//               @!@  !@!  @!@ !!@!  @!!       !@!       @!@@!@!   @!@  !@!  
+//               !@!  !!!  !@!  !!!  !!!       !!!       !!@!!!    !@!  !!!  
+//               !!:  !!!  !!:  !!!  !!:       :!!       !!: :!!   !!:  !!!  
+//               :!:  !:!  :!:  !:!   :!:      :!:       :!:  !:!  :!:  !:!  
+//               ::::: ::   ::   ::   :: ::::   ::: :::   ::  :::   :::: ::  
+//                : :  :   ::    :   : :: : :   :: :: :   :   :::  :: :  :                                                             
+//
+//         RTFKT Studios - UNLCKD (https://twitter.com/RTFKT)
 //         Anti-Theft System (made by @CardilloSamuel)
+//         Use at your own risk. 
 
 //     %%%%%%%%%%%%%%%%%%%%%%%%%% STANDALONE VERSION %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -74,9 +87,12 @@ abstract contract externalContract {
 pragma solidity 0.8.7;
  
 contract AntiTheftStandalone {
-    bool public blockTransactionBetweenExchange = true;
-    bool public blockTransactionWhenFlagged = true;
-    bool public useBlacklistingSystem = true;
+    mapping (string => bool) public antiTheftParameters;
+    string[] public parametersName = [
+        "blockTransactionBetweenExchange", 
+        "blockTransactionWhenFlagged"
+        "useBlacklistingSystem"
+    ];
     uint256 public maximumTimeLastTransfer = 1800; // In second (default : 1800 - 30 minutes)
 
     // Using mapping to reduce gas usage
@@ -89,6 +105,9 @@ contract AntiTheftStandalone {
 
     constructor() {
         authorizedAuthorities[msg.sender] = true;
+        for(uint256 i = 0; i < parametersName.length; ++i) {
+            antiTheftParameters[parametersName[i]] = true;
+        }
     }
 
     /** 
@@ -114,7 +133,7 @@ contract AntiTheftStandalone {
         externalContract externalToken = externalContract(contractAddress);
         require(externalToken.ownerOf(tokenId) != msg.sender, "You can't raise a flag against yourself");
         require(stolenFlags[contractAddress][tokenId] == 0x0000000000000000000000000000000000000000, "A flag has been raised already");
-        if(blockTransactionBetweenExchange) require( (block.timestamp - pastOwnerLedger[contractAddress][msg.sender]) <= maximumTimeLastTransfer, "Time to flag token has been elapsed");
+        if(antiTheftParameters["blockTransactionBetweenExchange"]) require( (block.timestamp - pastOwnerLedger[contractAddress][msg.sender]) <= maximumTimeLastTransfer, "Time to flag token has been elapsed");
 
         stolenFlags[contractAddress][tokenId] = msg.sender;
     }
@@ -146,16 +165,13 @@ contract AntiTheftStandalone {
     }
 
     function toggleBlacklistedAddress(address chosenAddress) public isAuthorizerAuthority {
-        require(useBlacklistingSystem, "The blacklisting system is not being used");
+        require(antiTheftParameters["useBlacklistingSystem"], "The blacklisting system is not being used");
 
         blacklistedAddress[chosenAddress] = !blacklistedAddress[chosenAddress];
     }
 
     function toggleCoreSystem(string calldata systemName) public isAuthorizerAuthority {
-        if(keccak256(bytes(systemName)) == keccak256(bytes("blacklist"))) useBlacklistingSystem = !useBlacklistingSystem;
-        else if(keccak256(bytes(systemName)) == keccak256(bytes("transferBlock"))) blockTransactionWhenFlagged = !blockTransactionWhenFlagged;
-        else if(keccak256(bytes(systemName)) == keccak256(bytes("timelock"))) blockTransactionBetweenExchange = !blockTransactionBetweenExchange;
-        else revert("No system found");
+        antiTheftParameters[systemName] = !antiTheftParameters[systemName];
     }
 
     function modifyMaximumTimeTransfer(uint256 newMaximumTime) public isAuthorizerAuthority {
@@ -166,11 +182,12 @@ contract AntiTheftStandalone {
         GETTER FUNCTIONS FOR EXTERNAL CONTRACT 
     **/ 
 
+    function getParameterNames() external view returns(string[] memory) {
+        return parametersName;
+    }
+
     function getCoreParameter(string calldata systemName) external view returns(bool) {
-        if(keccak256(bytes(systemName)) == keccak256(bytes("blacklist"))) return useBlacklistingSystem;
-        else if(keccak256(bytes(systemName)) == keccak256(bytes("transferBlock"))) return blockTransactionWhenFlagged;
-        else if(keccak256(bytes(systemName)) == keccak256(bytes("timelock"))) return blockTransactionBetweenExchange;
-        else revert("No system found");
+        return antiTheftParameters[systemName];
     }
 
     function getPastOwnership(address pastOwner) external view returns(uint256) {
