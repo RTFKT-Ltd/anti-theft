@@ -29,36 +29,24 @@
 //         Dummy NFT
 //         Use at your own risk. 
 //
-
+/// @dev The idea is to avoid coping the _beforeTranfer and _afterTranfer evrytime. This Secuarble.sol is a simple 
+/// sdk package that give the hability for the ERC721 to interact with the antitheft_standalone contract
 pragma solidity 0.8.7;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./ERC721A.sol";
+import "./Securable.sol";
  
- abstract contract AntiTheftContract {
-    function getCoreParameter(string calldata systemName) external view virtual returns(bool);
-    function getPastOwnership(address pastOwner) external view virtual returns(uint256);
-    function getStolenFlags(uint256 tokenId) external view virtual returns(address);
-    function getBlacklistedAddress(address potentialBlacklisted) external view virtual returns(bool);
-    function getExceptionList(address from, address to) external view virtual returns(bool);
-    function getMaximumTimeLastTransfer() external view virtual returns(uint256);
-
-    function setPastOwnership(address pastOwner) external virtual;
-    function setExceptionList(address from, address to) external virtual;
-}
-
-
-contract TestNFTStandalone is ERC721A, Ownable {
+contract TestNFTStandalone is ERC721A, Ownable, Securable {
     string public baseURI = "ipfs://nope/";
-    address antiTheftSystemAddress = 0xb27A31f1b0AF2946B7F582768f03239b1eC07c2c;
  
-    constructor () ERC721A("TestNFT", "TestNFT", 20) {
+    constructor () ERC721A("TestNFT", "TestNFT") {
     }
 
     function changeAntiTheftContract(address newAddress) public onlyOwner {
-        antiTheftSystemAddress = newAddress;
+        _changeAntiTheftContract(newAddress);
     }
- 
+
     // Mint
     function mint(uint256 quantity) public {
         require(tx.origin == msg.sender, "The caller is another contract");
@@ -75,7 +63,7 @@ contract TestNFTStandalone is ERC721A, Ownable {
     }
 
     function getOwnershipData(uint256 tokenId) external view returns (TokenOwnership memory) {
-        return ownershipOf(tokenId);
+        return _ownershipOf(tokenId);
     }
 
     function _baseURI() internal view virtual override returns (string memory) {
@@ -83,26 +71,30 @@ contract TestNFTStandalone is ERC721A, Ownable {
     }
 
     function getPastOwnership() public view returns (uint256) {
-        AntiTheftContract externalContract = AntiTheftContract(antiTheftSystemAddress);
-        return externalContract.getPastOwnership(msg.sender);
+        return _getPastOwnership();
     }
 
-    function _beforeTokenTransfers(address from, address to, uint256 startTokenId, uint256 quantity) internal virtual override {
-        AntiTheftContract externalContract = AntiTheftContract(antiTheftSystemAddress);
-
-        if(externalContract.getCoreParameter("transferBlock")) require(externalContract.getStolenFlags(startTokenId) == 0x0000000000000000000000000000000000000000 || msg.sender == antiTheftSystemAddress, "This NFT has been flagged as stolen and can't be transferred until litige has been set.");
-        if(externalContract.getCoreParameter("blacklist")) require(!externalContract.getBlacklistedAddress(to) || externalContract.getExceptionList(from,to), "This address has been blacklisted and can't receive this token");
-        if(externalContract.getCoreParameter("timelock")) require(externalContract.getPastOwnership(msg.sender) == 0 || block.timestamp - externalContract.getPastOwnership(msg.sender) >= externalContract.getMaximumTimeLastTransfer(), "You can't transfer this NFT now.");
+    function _beforeTokenTransfers(
+        address from, 
+        address to, 
+        uint256 startTokenId, 
+        uint256 quantity) 
+        internal virtual 
+        checkIfStolen(from, to, startTokenId, quantity) 
+        override {
 
         super._beforeTokenTransfers(from, to, startTokenId, quantity);
     }
 
-    function _afterTokenTransfers(address from, address to, uint256 startTokenId, uint256 quantity) internal virtual override {
-        AntiTheftContract externalContract = AntiTheftContract(antiTheftSystemAddress);
-
-        externalContract.setPastOwnership(to); // Admitting past ownership by saying when was the last timestamp of ownership
-        externalContract.setExceptionList(from, to);
-
+    function _afterTokenTransfers(
+        address from, 
+        address to, 
+        uint256 startTokenId, 
+        uint256 quantity) 
+        internal virtual 
+        updatePastOwnership(from, to, startTokenId, quantity) 
+        override {
+        
         super._afterTokenTransfers(from, to, startTokenId, quantity);
     }
 
