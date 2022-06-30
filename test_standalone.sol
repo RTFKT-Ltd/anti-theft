@@ -74,12 +74,26 @@ contract TestNFTStandalone is ERC721A, Ownable, Securable {
         return _getPastOwnership();
     }
 
-    function _beforeTokenTransfers(address from, address to, uint256 startTokenId, uint256 quantity) internal virtual checkIfStolen(from, to, startTokenId, quantity) override {
+    function _beforeTokenTransfers(
+        address from, 
+        address to, 
+        uint256 startTokenId, 
+        uint256 quantity) 
+        internal virtual 
+        checkIfStolen(from, to, startTokenId, quantity) 
+        override {
 
         super._beforeTokenTransfers(from, to, startTokenId, quantity);
     }
 
-    function _afterTokenTransfers(address from, address to, uint256 startTokenId, uint256 quantity) internal virtual updatePastOwnership(from, to, startTokenId, quantity) override {
+    function _afterTokenTransfers(
+        address from, 
+        address to, 
+        uint256 startTokenId, 
+        uint256 quantity) 
+        internal virtual 
+        updatePastOwnership(from, to, startTokenId, quantity) 
+        override {
         
         super._afterTokenTransfers(from, to, startTokenId, quantity);
     }
